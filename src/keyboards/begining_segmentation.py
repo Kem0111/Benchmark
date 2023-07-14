@@ -71,9 +71,7 @@ async def menu_keyboard():
 
 async def set_commands():
     commands = [
-        types.MenuButton(command="/who_are_we", description="Кто мы"),
-        types.MenuButton(command="/b2b", description="B2B"),
-        types.MenuButton(command="/b2c", description="B2C"),
+        types.MenuButton(command="/start", description="Начать"),
     ]
 
     await bot.set_my_commands(commands=commands)

@@ -8,6 +8,14 @@ from states.user_data import UserDataCollectionState
 from aiogram.dispatcher import FSMContext
 
 
+async def update_bot_message_ids(state: FSMContext, 
+                                 bot_message: types.Message):
+    user_data = await state.get_data()
+    await state.update_data(
+        bot_message_ids=user_data['bot_message_ids'] + [bot_message.message_id]
+    )
+
+
 async def on_start(message: types.Message):
     bot_message = await message.answer(
         bot_messages["start"],
@@ -17,16 +25,22 @@ async def on_start(message: types.Message):
 
 
 async def start_cmd_handler(message: types.Message, state: FSMContext):
-    await state.finish()
-    await state.reset_state(with_data=False)
-    message_id = await on_start(message)
-    await state.update_data(bot_message_ids=[message_id])
+    user_data = await state.get_data()
+    completed_survey = user_data.get('completed_survey', False)
+
+    if completed_survey:
+        await get_menu(message)
+    else:
+        await state.finish()
+        await state.reset_state(with_data=False)
+        message_id = await on_start(message)
+        await state.update_data(bot_message_ids=[message_id])
 
 
 async def process_start_button(callback_query: types.CallbackQuery, state: FSMContext):
-    user_data = await state.get_data()
+
     bot_message = await callback_query.message.answer(bot_messages["get_full_name"])
-    await state.update_data(bot_message_ids=user_data['bot_message_ids'] + [bot_message.message_id])
+    await update_bot_message_ids(state, bot_message)
     await state.set_state(UserDataCollectionState.WaitingForName.state)
 
 
@@ -34,32 +48,32 @@ async def get_name(message: types.Message, state: FSMContext):
     full_name = message.text
     await state.update_data(full_name=full_name)
     bot_message = await message.answer(bot_messages["get_industry"])
-    user_data = await state.get_data()
-    await state.update_data(bot_message_ids=user_data['bot_message_ids'] + [bot_message.message_id])
+    await update_bot_message_ids(state, bot_message)
     await state.set_state(UserDataCollectionState.WaitingForIndustry.state)
 
 
 async def get_industry(message: types.Message, state: FSMContext):
     industry = message.text
     await state.update_data(industry=industry)
-    bot_message = await message.answer(bot_messages["get_grade"], reply_markup=await grade_buttons())
-    user_data = await state.get_data()
-    await state.update_data(bot_message_ids=user_data['bot_message_ids'] + [bot_message.message_id])
+    bot_message = await message.answer(bot_messages["get_grade"],
+                                       reply_markup=await grade_buttons())
+    await update_bot_message_ids(state, bot_message)
     await state.set_state(UserDataCollectionState.WaitingForGrade.state)
 
 
 async def get_grade(callback_query: types.CallbackQuery, state: FSMContext):
     grade = callback_query.data
-    user_data = await state.get_data()
 
     if grade == "another":
-        bot_message = await callback_query.message.answer(bot_messages["get_another_grade"])
-        await state.update_data(bot_message_ids=user_data['bot_message_ids'] + [bot_message.message_id])
+        bot_message = await callback_query.message.answer(
+            bot_messages["get_another_grade"]
+        )
+        await update_bot_message_ids(state, bot_message)
         await state.set_state(UserDataCollectionState.WaitingForAnotherGrade.state)
     else:
         await state.update_data(grade=grade)
         bot_message = await callback_query.message.answer(bot_messages["get_source"])
-        await state.update_data(bot_message_ids=user_data['bot_message_ids'] + [bot_message.message_id])
+        await update_bot_message_ids(state, bot_message)
         await state.set_state(UserDataCollectionState.WaitingForSource.state)
 
 
@@ -67,8 +81,7 @@ async def get_another_grade(message: types.Message, state: FSMContext):
     grade = message.text
     await state.update_data(grade=grade)
     bot_message = await message.answer(bot_messages["get_source"])
-    user_data = await state.get_data()
-    await state.update_data(bot_message_ids=user_data['bot_message_ids'] + [bot_message.message_id])
+    await update_bot_message_ids(state, bot_message)
     await state.set_state(UserDataCollectionState.WaitingForSource.state)
 
 
@@ -76,8 +89,7 @@ async def get_source(message: types.Message, state: FSMContext):
     source = message.text
     await state.update_data(source=source)
     bot_message = await message.answer(bot_messages["get_contact"])
-    user_data = await state.get_data()
-    await state.update_data(bot_message_ids=user_data['bot_message_ids'] + [bot_message.message_id])
+    await update_bot_message_ids(state, bot_message)
     await state.set_state(UserDataCollectionState.WaitingForContact.state)
 
 
@@ -87,7 +99,8 @@ async def get_contact(message: types.Message, state: FSMContext):
     user_data = await state.get_data()
     print(user_data)
 
-    await message.answer(bot_messages["after_fill_form_message"], reply_markup=await menu_keyboard())
+    await message.answer(bot_messages["after_fill_form_message"],
+                         reply_markup=await menu_keyboard())
     await set_commands()
 
     message_ids = await state.get_data()
@@ -96,17 +109,18 @@ async def get_contact(message: types.Message, state: FSMContext):
 
     await state.finish()
     await state.reset_state(with_data=False)
+    await state.update_data(completed_survey=True)
 
 
 async def get_menu(message: types.Message):
-    await message.answer("Выберите опцию из меню:",
-                         reply_markup=await menu_keyboard())
+    await message.answer("Выберите опцию из меню:", reply_markup=await menu_keyboard())
 
 
 def register_handlers_client(dp: Dispatcher):
     dp.register_message_handler(
         start_cmd_handler,
-        commands=['start', 'help']
+        commands=['start', 'help'],
+        state="*"
     )
     dp.register_callback_query_handler(
         process_start_button,
