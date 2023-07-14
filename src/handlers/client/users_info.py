@@ -16,6 +16,14 @@ async def update_bot_message_ids(state: FSMContext,
     )
 
 
+async def delete_bot_messages(message: types.Message, state: FSMContext):
+    message_ids = await state.get_data()
+    if message_ids.get('bot_message_ids'):
+        for msg_id in message_ids['bot_message_ids']:
+            await bot.delete_message(chat_id=message.chat.id, message_id=msg_id)
+
+
+# =================================HANDLERS=====================================
 async def on_start(message: types.Message):
     bot_message = await message.answer(
         bot_messages["start"],
@@ -31,6 +39,7 @@ async def start_cmd_handler(message: types.Message, state: FSMContext):
     if completed_survey:
         await get_menu(message)
     else:
+        await delete_bot_messages(message, state)
         await state.finish()
         await state.reset_state(with_data=False)
         message_id = await on_start(message)
@@ -50,6 +59,7 @@ async def get_name(message: types.Message, state: FSMContext):
     bot_message = await message.answer(bot_messages["get_industry"])
     await update_bot_message_ids(state, bot_message)
     await state.set_state(UserDataCollectionState.WaitingForIndustry.state)
+    await message.delete()
 
 
 async def get_industry(message: types.Message, state: FSMContext):
@@ -59,6 +69,7 @@ async def get_industry(message: types.Message, state: FSMContext):
                                        reply_markup=await grade_buttons())
     await update_bot_message_ids(state, bot_message)
     await state.set_state(UserDataCollectionState.WaitingForGrade.state)
+    await message.delete()
 
 
 async def get_grade(callback_query: types.CallbackQuery, state: FSMContext):
@@ -83,6 +94,7 @@ async def get_another_grade(message: types.Message, state: FSMContext):
     bot_message = await message.answer(bot_messages["get_source"])
     await update_bot_message_ids(state, bot_message)
     await state.set_state(UserDataCollectionState.WaitingForSource.state)
+    await message.delete()
 
 
 async def get_source(message: types.Message, state: FSMContext):
@@ -91,6 +103,7 @@ async def get_source(message: types.Message, state: FSMContext):
     bot_message = await message.answer(bot_messages["get_contact"])
     await update_bot_message_ids(state, bot_message)
     await state.set_state(UserDataCollectionState.WaitingForContact.state)
+    await message.delete()
 
 
 async def get_contact(message: types.Message, state: FSMContext):
@@ -103,13 +116,11 @@ async def get_contact(message: types.Message, state: FSMContext):
                          reply_markup=await menu_keyboard())
     await set_commands()
 
-    message_ids = await state.get_data()
-    for msg_id in message_ids['bot_message_ids']:
-        await bot.delete_message(chat_id=message.chat.id, message_id=msg_id)
-
+    await delete_bot_messages(message, state)
     await state.finish()
     await state.reset_state(with_data=False)
     await state.update_data(completed_survey=True)
+    await message.delete()
 
 
 async def get_menu(message: types.Message):
