@@ -8,19 +8,19 @@ from states.user_data import UserDataCollectionState
 from aiogram.dispatcher import FSMContext
 
 
-async def update_bot_message_ids(state: FSMContext, 
+async def update_bot_message_ids(state: FSMContext,
                                  bot_message: types.Message):
-    user_data = await state.get_data()
+
     await state.update_data(
-        bot_message_ids=user_data['bot_message_ids'] + [bot_message.message_id]
+        bot_message_id=bot_message.message_id
     )
 
 
-async def delete_bot_messages(message: types.Message, state: FSMContext):
-    message_ids = await state.get_data()
-    if message_ids.get('bot_message_ids'):
-        for msg_id in message_ids['bot_message_ids']:
-            await bot.delete_message(chat_id=message.chat.id, message_id=msg_id)
+async def delete_prev_bot_message(message: types.Message, state: FSMContext):
+    data = await state.get_data()
+    msg_id = data.get('bot_message_id')
+    if msg_id:
+        await bot.delete_message(chat_id=message.chat.id, message_id=msg_id)
 
 
 # =================================HANDLERS=====================================
@@ -39,21 +39,23 @@ async def start_cmd_handler(message: types.Message, state: FSMContext):
     if completed_survey:
         await get_menu(message)
     else:
-        await delete_bot_messages(message, state)
+        await delete_prev_bot_message(message, state)
         await state.finish()
         await state.reset_state(with_data=False)
         message_id = await on_start(message)
-        await state.update_data(bot_message_ids=[message_id])
+        await state.update_data(bot_message_id=message_id)
 
 
 async def process_start_button(callback_query: types.CallbackQuery, state: FSMContext):
-
+    await delete_prev_bot_message(callback_query.message, state)
     bot_message = await callback_query.message.answer(bot_messages["get_full_name"])
     await update_bot_message_ids(state, bot_message)
+
     await state.set_state(UserDataCollectionState.WaitingForName.state)
 
 
 async def get_name(message: types.Message, state: FSMContext):
+    await delete_prev_bot_message(message, state)
     full_name = message.text
     await state.update_data(full_name=full_name)
     bot_message = await message.answer(bot_messages["get_industry"])
@@ -63,6 +65,7 @@ async def get_name(message: types.Message, state: FSMContext):
 
 
 async def get_industry(message: types.Message, state: FSMContext):
+    await delete_prev_bot_message(message, state)
     industry = message.text
     await state.update_data(industry=industry)
     bot_message = await message.answer(bot_messages["get_grade"],
@@ -74,7 +77,7 @@ async def get_industry(message: types.Message, state: FSMContext):
 
 async def get_grade(callback_query: types.CallbackQuery, state: FSMContext):
     grade = callback_query.data
-
+    await delete_prev_bot_message(callback_query.message, state)
     if grade == "another":
         bot_message = await callback_query.message.answer(
             bot_messages["get_another_grade"]
@@ -89,6 +92,7 @@ async def get_grade(callback_query: types.CallbackQuery, state: FSMContext):
 
 
 async def get_another_grade(message: types.Message, state: FSMContext):
+    await delete_prev_bot_message(message, state)
     grade = message.text
     await state.update_data(grade=grade)
     bot_message = await message.answer(bot_messages["get_source"])
@@ -98,6 +102,7 @@ async def get_another_grade(message: types.Message, state: FSMContext):
 
 
 async def get_source(message: types.Message, state: FSMContext):
+    await delete_prev_bot_message(message, state)
     source = message.text
     await state.update_data(source=source)
     bot_message = await message.answer(bot_messages["get_contact"])
@@ -107,6 +112,7 @@ async def get_source(message: types.Message, state: FSMContext):
 
 
 async def get_contact(message: types.Message, state: FSMContext):
+    await delete_prev_bot_message(message, state)
     contact = message.text
     await state.update_data(contact=contact)
     user_data = await state.get_data()
@@ -116,7 +122,6 @@ async def get_contact(message: types.Message, state: FSMContext):
                          reply_markup=await menu_keyboard())
     await set_commands()
 
-    await delete_bot_messages(message, state)
     await state.finish()
     await state.reset_state(with_data=False)
     await state.update_data(completed_survey=True)
