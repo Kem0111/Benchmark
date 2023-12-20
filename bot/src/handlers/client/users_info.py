@@ -1,11 +1,14 @@
 from aiogram import types, Dispatcher
-from core.settings import bot_messages, bot
-from keyboards.begining_segmentation import (start_button,
-                                             grade_buttons,
-                                             menu_keyboard,
-                                             set_commands)
-from states.user_data import UserDataCollectionState
+from bot.src.core.settings import bot_messages, bot
+from bot.src.keyboards.begining_segmentation import (start_button,
+                                                     grade_buttons,
+                                                     menu_keyboard,
+                                                     set_commands)
+from bot.src.states.user_data import UserDataCollectionState
 from aiogram.dispatcher import FSMContext
+from bot.models import TelegramUser
+import re
+from bot.src.core.http_client import zoho_client
 
 
 async def update_bot_message_ids(state: FSMContext,
@@ -33,15 +36,19 @@ async def on_start(message: types.Message):
 
 
 async def start_cmd_handler(message: types.Message, state: FSMContext):
-    user_data = await state.get_data()
-    completed_survey = user_data.get('completed_survey', False)
+    await state.finish()
+    await state.reset_data()
+    await set_commands()
+    user = await TelegramUser.objects.filter(
+        tg_id=message.from_user.id
+    ).afirst()
 
-    if completed_survey:
+    if user:
         await get_menu(message)
     else:
         await delete_prev_bot_message(message, state)
         await state.finish()
-        await state.reset_state(with_data=False)
+        await state.reset_state(with_data=True)
         message_id = await on_start(message)
         await state.update_data(bot_message_id=message_id)
 
@@ -57,7 +64,11 @@ async def process_start_button(callback_query: types.CallbackQuery, state: FSMCo
 async def get_name(message: types.Message, state: FSMContext):
     await delete_prev_bot_message(message, state)
     full_name = message.text
-    await state.update_data(full_name=full_name)
+    await state.update_data(
+        Last_Name=full_name,
+        Lead_Status='New',
+        Lead_Source='Telegram'
+    )
     bot_message = await message.answer(bot_messages["get_industry"])
     await update_bot_message_ids(state, bot_message)
     await state.set_state(UserDataCollectionState.WaitingForIndustry.state)
@@ -67,7 +78,7 @@ async def get_name(message: types.Message, state: FSMContext):
 async def get_industry(message: types.Message, state: FSMContext):
     await delete_prev_bot_message(message, state)
     industry = message.text
-    await state.update_data(industry=industry)
+    await state.update_data(Industry=industry)
     bot_message = await message.answer(bot_messages["get_grade"],
                                        reply_markup=await grade_buttons())
     await update_bot_message_ids(state, bot_message)
@@ -104,23 +115,43 @@ async def get_another_grade(message: types.Message, state: FSMContext):
 async def get_source(message: types.Message, state: FSMContext):
     await delete_prev_bot_message(message, state)
     source = message.text
-    await state.update_data(source=source)
+    await state.update_data(Description=source)
     bot_message = await message.answer(bot_messages["get_contact"])
     await update_bot_message_ids(state, bot_message)
     await state.set_state(UserDataCollectionState.WaitingForContact.state)
     await message.delete()
 
 
+def is_phone_number(number):
+    phone_regex = r'(\s*)?(\+)?([- _():=+]?\d[- _():=+]?){10,14}(\s*)?'
+
+    return re.match(phone_regex, number)
+
+
 async def get_contact(message: types.Message, state: FSMContext):
     await delete_prev_bot_message(message, state)
     contact = message.text
-    await state.update_data(contact=contact)
-    user_data = await state.get_data()
-    print(user_data)
+    if is_phone_number(contact):
+        await state.update_data(Phone=contact)
+    else:
+        await state.update_data(Email=contact)
+    lead_data = await state.get_data()
+    lead_data.pop('bot_message_id')
+    grade = lead_data.pop('grade')
+    lead_data['Industry'] = f"{lead_data['Industry']} {grade}"
+    await zoho_client.send_lead(lead_data)
 
-    await message.answer(bot_messages["after_fill_form_message"],
-                         reply_markup=await menu_keyboard())
-    await set_commands()
+    await TelegramUser.objects.acreate(
+        tg_id=message.from_user.id,
+        user_name=message.from_user.username
+        )
+
+    await bot.send_message(
+        chat_id=message.from_user.id,
+        text=bot_messages["after_fill_form_message"],
+        reply_markup=await menu_keyboard(),
+        parse_mode='HTML'
+    )
 
     await state.finish()
     await state.reset_state(with_data=False)

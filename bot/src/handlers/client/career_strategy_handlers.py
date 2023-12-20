@@ -1,6 +1,6 @@
 from aiogram import types, Dispatcher
-from core.settings import bot_messages, bot
-from keyboards.career_strategy_inline_menu import (rates_keyboard,
+from bot.src.core.settings import bot_messages, bot
+from bot.src.keyboards.career_strategy_inline_menu import (rates_keyboard,
                                                    back_to_rates_button,
                                                    back_to_strategy_button)
 from .company_materials import get_career_strategy
@@ -41,12 +41,6 @@ async def get_it_specialist_rate(callback_query: types.CallbackQuery):
         reply_markup=await back_to_rates_button())
 
 
-async def get_personal_rate(callback_query: types.CallbackQuery):
-    await callback_query.message.edit_text(
-        bot_messages["get_personal_rate"],
-        reply_markup=await back_to_rates_button())
-
-
 async def back_to_rates_handler(callback_query: types.CallbackQuery):
     await get_rates(callback_query)
 # =================================RATES========================================
@@ -72,13 +66,7 @@ async def get_feedback(callback_query: types.CallbackQuery):
 
 
 # =================================FAQ==========================================
-async def get_faq(callback_query: types.CallbackQuery):
-    await bot.edit_message_text(
-        chat_id=callback_query.from_user.id,
-        message_id=callback_query.message.message_id,
-        text=bot_messages["get_faq"],
-        reply_markup=await back_to_strategy_button(),
-        parse_mode="HTML")
+
 # =================================FAQ==========================================
 
 
@@ -116,18 +104,10 @@ def register_handlers_client(dp: Dispatcher):
         text="it_specialist_rate_button"
     )
     dp.register_callback_query_handler(
-        get_personal_rate,
-        text="personal_rate_button"
-    )
-    dp.register_callback_query_handler(
         get_reviews,
         text="reviews_button"
     )
     dp.register_callback_query_handler(
         get_feedback,
         text="feedback_button"
-    )
-    dp.register_callback_query_handler(
-        get_faq,
-        text="questions_button"
     )

@@ -1,6 +1,6 @@
 from aiogram.types import (InlineKeyboardMarkup,
                            InlineKeyboardButton)
-from core.settings import bot_messages
+from bot.src.core.settings import bot_messages
 
 
 async def rates_keyboard():
@@ -15,8 +15,6 @@ async def rates_keyboard():
                              callback_data="premium_rate_button"),
         InlineKeyboardButton(bot_messages["it_specialist_rate_button"],
                              callback_data="it_specialist_rate_button"),
-        InlineKeyboardButton(bot_messages["personal_rate_button"],
-                             callback_data="personal_rate_button"),
         InlineKeyboardButton(bot_messages["back"],
                              callback_data="back_to_strategy_button")
     ]
