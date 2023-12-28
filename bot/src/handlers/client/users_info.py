@@ -6,7 +6,7 @@ from bot.src.keyboards.begining_segmentation import (start_button,
                                                      set_commands)
 from bot.src.states.user_data import UserDataCollectionState
 from aiogram.dispatcher import FSMContext
-from bot.models import TelegramUser
+from bot.models import TelegramUser, Profile
 import re
 from bot.src.core.http_client import zoho_client
 
@@ -139,13 +139,23 @@ async def get_contact(message: types.Message, state: FSMContext):
     lead_data.pop('bot_message_id')
     grade = lead_data.pop('grade')
     lead_data['Industry'] = f"{lead_data['Industry']} {grade}"
-    await zoho_client.send_lead(lead_data)
+    # await zoho_client.send_lead(lead_data)
 
     await TelegramUser.objects.acreate(
         tg_id=message.from_user.id,
         user_name=message.from_user.username
+    )
+    try:
+        await Profile.objects.acreate(
+            user_id=message.from_user.id,
+            full_name=lead_data.get('Last_Name', ''),
+            industry=lead_data.get('Industry', ''),
+            grade=grade,
+            source=lead_data.get('Description', ''),
+            contact=lead_data.get('Phone', '') or lead_data.get('Email', '')
         )
-
+    except Exception as e:
+        print(e)
     await bot.send_message(
         chat_id=message.from_user.id,
         text=bot_messages["after_fill_form_message"],

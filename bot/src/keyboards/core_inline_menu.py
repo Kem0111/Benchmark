@@ -22,7 +22,7 @@ async def career_strategy_keyboard():
         InlineKeyboardButton(bot_messages["rates_button"],
                              callback_data="rates_button"),
         InlineKeyboardButton(bot_messages["reviews_button"],
-                             url="https://benchmarkexecutive-my.sharepoint.com/:b:/g/personal/a_pavlova_benchmark_ru_com/EZ6EwxCRX1xJkZurMtSkiJMBjjZIMRoi4iX4HaaA6JeA0g?e=b4xLo0"),
+                             url="https://drive.google.com/file/d/1gmpmgojFoM95tjGsL3FkHECc_f5cHish/view?usp=sharing"),
         InlineKeyboardButton(bot_messages["feedback_button"],
                              callback_data="feedback_button"),
         InlineKeyboardButton(bot_messages["consultation_button"],
