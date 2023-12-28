@@ -139,7 +139,7 @@ async def get_contact(message: types.Message, state: FSMContext):
     lead_data.pop('bot_message_id')
     grade = lead_data.pop('grade')
     lead_data['Industry'] = f"{lead_data['Industry']} {grade}"
-    # await zoho_client.send_lead(lead_data)
+    await zoho_client.send_lead(lead_data)
 
     await TelegramUser.objects.acreate(
         tg_id=message.from_user.id,
